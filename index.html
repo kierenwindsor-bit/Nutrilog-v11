@@ -450,7 +450,7 @@ function panelHTML(){
   return '<div class="panel"><label for="pf_name">Food (type to search)</label>'+
     '<input id="pf_name" data-enter="saveItem" autocomplete="off" maxlength="80" value="'+esc(f.name)+'" placeholder="e.g. porridge, banana, curry">'+
     '<div id="sug"></div>'+
-    '<label for="pf_mult">Portion multiplier (applies when you pick from the list)</label><input id="pf_mult" type="number" inputmode="decimal" step="0.25" min="0.1" value="'+esc(f.mult)+'">'+
+    '<label for="pf_mult">Portion multiplier (scales the numbers below)</label><input id="pf_mult" type="number" inputmode="decimal" step="0.25" min="0.1" value="'+esc(f.mult)+'">'+
     labelHTML()+
     '<div class="g4">'+fld('kcal','Kcal')+fld('protein','Protein g')+fld('fat','Fat g')+fld('carbs','Carbs g')+'</div>'+
     '<div class="g3">'+fld('fibre','Fibre g')+fld('satfat','Sat fat g')+fld('sugar','Sugars g')+'</div>'+
@@ -711,10 +711,18 @@ function updateBamSug(){
   }
   box.innerHTML=bamSug.map(function(i){var f=FOODS[i];return '<div class="sg" data-act="bamAdd" data-i="'+i+'"><span>'+esc(f.name)+'</span><span class="mono sm">'+Math.round(f.kcal)+' kcal</span></div>';}).join('');
 }
+function curMult(){var m=parseFloat(($('#pf_mult')||{}).value);return isFinite(m)&&m>0?m:1;}
+function ensureBase(){
+  if(!panel||panel.base)return;
+  var m=panel.cm||1;
+  function g(k){var v=num(($('#pf_'+k)||{}).value);return v===undefined?undefined:v/m;}
+  panel.base={name:String(($('#pf_name')||{}).value||'').replace(/\s+x[\d.]+$/,''),kcal:g('kcal'),protein:g('protein'),fat:g('fat'),carbs:g('carbs'),fibre:g('fibre'),satfat:g('satfat'),sugar:g('sugar')};
+}
 function applyBase(){
   var b=panel&&panel.base;if(!b)return;
-  var m=parseFloat(($('#pf_mult')||{}).value);var mult=isFinite(m)&&m>0?m:1;
+  var mult=curMult();panel.cm=mult;
   function sc(k,round){var v=b[k];return v===undefined?'':String(round?Math.round(v*mult):r1(v*mult));}
+  if(b.kcal===undefined&&b.protein===undefined&&b.fat===undefined&&b.carbs===undefined)return;
   $('#pf_name').value=b.name+(mult!==1?' x'+mult:'');
   $('#pf_kcal').value=sc('kcal',true);
   ['protein','fat','carbs','fibre','satfat','sugar'].forEach(function(k){$('#pf_'+k).value=sc(k,false);});
@@ -1097,9 +1105,9 @@ document.addEventListener('keydown',function(e){
 });
 document.addEventListener('input',function(e){
   var t=e.target;
-  if(t.id==='pf_name'&&panel){panel.sugOpen=true;updateSug();}
-  else if(t.id==='pf_mult'&&panel&&panel.base){applyBase();}
-  else if(t.dataset&&t.dataset.nut&&panel){panel.base=null;}
+  if(t.id==='pf_name'&&panel){panel.base=null;panel.sugOpen=true;updateSug();}
+  else if(t.id==='pf_mult'&&panel){ensureBase();applyBase();}
+  else if(t.dataset&&t.dataset.nut&&panel){panel.base=null;panel.cm=1;var m2=$('#pf_mult');if(m2)m2.value='1';}
   else if(t.id==='bm_q'){bam.q=t.value;updateBamSug();}
   else if(t.id==='sc_g'&&scan.res){
     var g=parseFloat(t.value),box=$('#sc_tot');
